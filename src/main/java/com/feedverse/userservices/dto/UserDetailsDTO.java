@@ -1,8 +1,10 @@
 package com.feedverse.userservices.dto;
 
+import java.io.Serializable;
+
 import com.feedverse.userservices.model.DBUser;
 
-public class UserDetailsDTO {
+public class UserDetailsDTO implements Serializable {
     private String username;
     private String name;
     private int followingCount;

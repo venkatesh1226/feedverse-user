@@ -94,7 +94,7 @@ public class UserController {
     }
 
     @GetMapping("/search")
-    public Set<DBUser> getSearchUsers(@RequestParam String searchParam) {
+    public Set<UserDetailsDTO> getSearchUsers(@RequestParam String searchParam) {
         return userService.getSearchUsers(searchParam);
     }
 }

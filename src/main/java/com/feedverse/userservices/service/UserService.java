@@ -3,6 +3,7 @@ package com.feedverse.userservices.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.feedverse.userservices.model.DBUser;
+import com.feedverse.userservices.KafkaProducerService;
 import com.feedverse.userservices.dto.UserDetailsDTO;
 import com.feedverse.userservices.model.Connection;
 import com.feedverse.userservices.repository.ConnectionRepository;
@@ -10,12 +11,16 @@ import com.feedverse.userservices.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.Cacheable;
 
 @Service
 public class UserService {
@@ -26,6 +31,10 @@ public class UserService {
     private ConnectionRepository connectionRepository;
     @Autowired
     private KafkaTemplate<String, String> kafkaTemplate;
+    @Autowired
+    private CacheManager cacheManager;
+    @Autowired
+    private KafkaProducerService kafkaProducerService;
 
     @Autowired
     private ObjectMapper objectMapper; // Jackson's ObjectMapper
@@ -130,6 +139,7 @@ public class UserService {
 
             userRepository.save(follower);
             userRepository.save(followed);
+            String message = username + "#" + usernameToFollow;
         } else {
             throw new IllegalArgumentException("User is already following");
         }
@@ -182,6 +192,7 @@ public class UserService {
 
         userRepository.save(follower);
         userRepository.save(followed);
+        String message = username + "#" + usernameToUnfollow;
     }
 
     // public DBUser unfollowUser(String username, String usernameToUnfollow) {
@@ -220,7 +231,18 @@ public class UserService {
 
     }
 
-    public Set<DBUser> getSearchUsers(String searchParam) {
-        return userRepository.findUsers(searchParam);
+    @Cacheable(value = "users", key = "#searchParam")
+    public Set<UserDetailsDTO> getSearchUsers(String searchParam) {
+        Set<DBUser> ans = userRepository.findUsers(searchParam);
+        Set<UserDetailsDTO> res = new HashSet<UserDetailsDTO>();
+        for (DBUser user : ans) {
+            res.add(new UserDetailsDTO(user));
+        }
+        return res;
+    }
+
+    @Scheduled(fixedRate = 300000)
+    public void clearCache() {
+        cacheManager.getCache("users").clear();
     }
 }
